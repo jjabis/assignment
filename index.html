@@ -1,0 +1,227 @@
+﻿<!DOCTYPE html>
+
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta charset="utf-8" />
+  <title></title>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"
+          integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+          crossorigin="anonymous"></script>
+</head>
+<body>
+  <button style="margin-bottom:1rem" onclick="handleAddClick();">Add item</button>
+  <table id="table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Total employee</th>
+        <th>Established on</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    </tbody>
+  </table>
+
+  <span id="errorMessage"></span>
+
+  <dialog id="modal" data-id="0">
+    <div class="modalContent">
+      <label>Name</label>
+      <input id="inputCompanyName" type="text" />
+
+      <label>Total employee</label>
+      <input id="inputTotalemployee" type="number" />
+
+      <label>Established on</label>
+      <input id="inputEstablishedOn" type="date" />
+
+      <div style="display:flex;justify-content:space-between">
+        <button onclick="handleCancelClick();">Cancel</button>
+        <button onclick="handleSaveClick();">Save</button>
+      </div>
+    </div>
+    
+    
+  </dialog>
+
+</body>
+</html>
+
+<script>
+  getData();
+
+  function getData() {
+    $.ajax({
+
+      url: 'https://localhost:7261/api/company',
+      type: 'GET',
+      dataType: 'json',
+      success: function (data) {
+        var table = $("#table tbody");
+        table.empty();
+        $.each(data, (index, company) => {
+          table.append(createTableRow([company.name, company.totalEmployee, company.establishedOn], company.id))
+        });
+      },
+      error: function (request) {
+        $("#errorMessage").text(request.responseText);
+      }
+    });
+  }
+
+  function createTableRow(columns, id) {
+    var tds = createTds(columns, id);
+    return "<tr data-id='" + id + "'>" + tds + "</tr>";
+  }
+
+  function createTds(columns, id) {
+    var tds = columns.map((content) => {
+      return "<td>" + content + "</td>";
+    }).join("");
+
+    //Buttons
+    var buttons = "<td>" +
+      "<button onclick='handleEditClick(" + id + ");'>Edit</button>" +
+      "<button onclick='handleDeleteClick(" + id + ");'>Delete</button" +
+      "<td>"
+
+    tds += buttons;
+
+    return tds;
+  }
+
+  function handleDeleteClick(id) {
+    var result = confirm("Are you sure you want to delete this item?");
+    if (result) {
+      $.ajax({
+        url: 'https://localhost:7261/api/company/' + id,
+        type: 'DELETE',
+        success: function (data) {
+          $("tr[data-id=" + id + "]").remove();
+        },
+        error: function (request) {
+          $("#errorMessage").text(request.responseText);
+        }
+      });
+    }    
+  }
+
+  function handleSaveClick() {
+    var id = $("#modal").data("id");
+    var isAdd = id === 0;
+
+    var company = {
+      name: $("#inputCompanyName").val(),
+      totalEmployee: $("#inputTotalemployee").val(),
+      establishedOn: $("#inputEstablishedOn").val()
+    };
+
+    !isAdd && (company.Id = id);
+
+    $.ajax({
+      url: 'https://localhost:7261/api/company',
+      type: isAdd ? 'POST' : 'PUT',
+      data: JSON.stringify(company),
+      contentType: "application/json; charset=utf-8",
+      success: function (data) {
+        clearAndCloseModal();
+
+        if (isAdd) {
+          var table = $("#table tbody");
+          table.append(createTableRow([data.name, data.totalEmployee, data.establishedOn], data.id))          
+        }
+        else {
+          $("tr[data-id=" + id + "]").children().remove();
+          $("tr[data-id=" + id + "]").append(createTds([data.name, data.totalEmployee, data.establishedOn], data.id));          
+        }        
+      },
+      error: function (request, error) {
+        $("#errorMessage").text(request.responseText);
+        clearAndCloseModal();
+      }
+    });
+  }
+
+  function handleEditClick(id) {    
+    $.ajax({
+      url: 'https://localhost:7261/api/company/' + id,
+      type: 'GET',
+      success: function (company) {
+        $("#modal").data("id", id);
+        $("#inputCompanyName").val(company.name);
+        $("#inputTotalemployee").val(company.totalEmployee);
+
+        var datetime = company.establishedOn.split("T");
+        $("#inputEstablishedOn").val(datetime[0]);
+        $("#modal")[0].showModal();
+      },
+      error: function (request, error) {
+        $("#errorMessage").text(request.responseText);
+      }
+    });    
+  }
+  function handleAddClick() {
+    $("#modal")[0].showModal();
+  }
+  function handleCancelClick() {
+    clearAndCloseModal();
+  }
+  function clearAndCloseModal() {
+    $("#modal").data("id", "0");
+    $("#inputCompanyName").val("");
+    $("#inputTotalemployee").val("");
+    $("#inputEstablishedOn").val("");
+
+    $("#modal")[0].close();
+  }
+
+</script>
+
+<style>
+  #table {
+    border-collapse: collapse;
+    font-family: sans-serif;
+    box-shadow: rgba(149, 157, 165, 0.2) 0px 4px 24px;
+    border-radius:4px;
+  }
+
+    #table th {
+      padding: 6px 24px 6px 16px;
+      font-weight: 700;
+      line-height: 1.5rem;
+      border-bottom: 1px solid rgba(224, 224, 224, 1);
+      text-align: start;
+      padding-inline-start: 16px;
+      padding-inline-end: 24px;
+    }
+
+  #table td {
+    padding: 6px 24px 6px 16px;
+    padding-inline-start: 16px;
+    padding-inline-end: 24px;
+    display: table-cell;
+    padding: 16px;
+    font-size: .875rem;
+    text-align: start;
+    font-weight: 400;
+    line-height: 1.43;
+    border-bottom: 1px solid rgba(224, 224, 224, 1);
+  }
+  #table tr:last-child td {
+    border-bottom:0px;
+  }
+
+  .modalContent {
+    width: fit-content;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  #modal {
+    border: 0px;
+    box-shadow: rgba(149, 157, 165, 0.2) 0px 4px 24px;
+    border-radius: 4px;
+  }
+</style>
